@@ -4411,6 +4411,17 @@ async def packs(message: discord.Interaction):
         if user[f"pack_{pack.lower()}"] < 1:
             return
         level = next((i for i, p in enumerate(pack_data) if p["name"] == pack), 0)
+        pack_id = f"pack_{pack.lower()}"
+        if user[f"pack_{pack.lower()}"] > 5:
+            view = View(timeout=VIEW_TIMEOUT)
+            await message.response.send_message(f"That's a lot of {get_emoji(pack_data[level]['name'].lower())} packs, would you like to open them all?", ephemeral=True)
+            button = Button(label=f"Open all! ({total_amount:,})", style=ButtonStyle.blurple)
+            button.callback = open_all_packs(level)
+            view.add_item(button)
+            button = Button(label=f"Open all! ({total_amount:,})", style=ButtonStyle.blurple)
+            button.callback = open_pack
+            view.add_item(button)
+            
 
         chosen_type, cat_amount, upgrades, reward_texts = get_pack_rewards(level)
         user[f"cat_{chosen_type}"] += cat_amount
@@ -4429,7 +4440,7 @@ async def packs(message: discord.Interaction):
         await asyncio.sleep(1)
         await interaction.edit_original_response(view=gen_view(user))
 
-    async def open_all_packs(interaction: discord.Interaction):
+    async def open_all_packs(interaction: discord.Interaction, level):
         if interaction.user != message.user:
             await do_funny(interaction)
             return
@@ -4445,19 +4456,34 @@ async def packs(message: discord.Interaction):
         results_detail = []
         results_percat = {cat: 0 for cat in cattypes}
         total_upgrades = 0
-        for level, pack in enumerate(pack_names):
-            pack_id = f"pack_{pack.lower()}"
-            this_packs_count = user[pack_id]
-            if this_packs_count < 1:
-                continue
-            results_header.append(f"{this_packs_count:,}x {get_emoji(pack.lower() + 'pack')}")
-            for _ in range(this_packs_count):
-                chosen_type, cat_amount, upgrades, rewards = get_pack_rewards(level, is_single=False)
-                total_upgrades += upgrades
-                if not display_cats:
-                    results_detail.append(rewards)
-                results_percat[chosen_type] += cat_amount
-            user[pack_id] = 0
+        if level:
+            for pack in enumerate(pack_names):
+                pack_id = f"pack_{pack.lower()}"
+                this_packs_count = user[pack_id]
+                if this_packs_count < 1:
+                    continue
+                results_header.append(f"{this_packs_count:,}x {get_emoji(pack.lower() + 'pack')}")
+                for _ in range(this_packs_count):
+                    chosen_type, cat_amount, upgrades, rewards = get_pack_rewards(level, is_single=False)
+                    total_upgrades += upgrades
+                    if not display_cats:
+                        results_detail.append(rewards)
+                    results_percat[chosen_type] += cat_amount
+                user[pack_id] = 0
+        else:
+            for level, pack in enumerate(pack_names):
+                pack_id = f"pack_{pack.lower()}"
+                this_packs_count = user[pack_id]
+                if this_packs_count < 1:
+                    continue
+                results_header.append(f"{this_packs_count:,}x {get_emoji(pack.lower() + 'pack')}")
+                for _ in range(this_packs_count):
+                    chosen_type, cat_amount, upgrades, rewards = get_pack_rewards(level, is_single=False)
+                    total_upgrades += upgrades
+                    if not display_cats:
+                        results_detail.append(rewards)
+                    results_percat[chosen_type] += cat_amount
+                user[pack_id] = 0
 
         user.packs_opened += total_pack_count
         user.pack_upgrades += total_upgrades
@@ -4499,7 +4525,7 @@ async def battlepass(message: discord.Interaction):
     async def toggle_reminders(interaction: discord.Interaction):
         nonlocal current_mode
         if interaction.user.id != message.user.id:
-            await do_funny(interaction)
+            await (interaction)
             return
         await interaction.response.defer()
         await user.refresh_from_db()
