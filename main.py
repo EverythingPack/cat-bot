@@ -2108,7 +2108,10 @@ async def on_message(message: discord.Message):
                             suffix_string += f"\n{get_emoji('prism')} {boost_applied_prism} boosted this catch from a {get_emoji(le_old_emoji.lower() + 'cat')} {le_old_emoji} cat!"
                     elif not channel.forcespawned:
                         if double_boost:
-                            suffix_string += f"\n{get_emoji('prism')} {boost_applied_prism} tried to boost this catch, but failed! A 20m rain will start!"
+                            if le_emoji == "eGirl":
+                                suffix_string += f"\n{get_emoji('prism')} {boost_applied_prism} tried to boost this catch twice, but failed! A 20m rain will start!"
+                            else:
+                                suffix_string += f"\n{get_emoji('prism')} {boost_applied_prism} tried to boost this catch twice, but failed! A 10m rain will start!"
                         else:
                             suffix_string += f"\n{get_emoji('prism')} {boost_applied_prism} tried to boost this catch, but failed! A 10m rain will start!"
 
