@@ -7327,7 +7327,7 @@ You can stop. That's okay. Seriously.
             "rr_type",
             placeholder="Select a perk to reroll",
             opts=options,
-            on_select=lambda interaction, level: perk_screen(interaction, int(level + 1), True),
+            on_select=lambda interaction, level: perk_screen(interaction, int(level) + 1, True),
         )
         perk_embed = Container("# Your Perks", full_desc)
         myview.add_item(perk_embed)
