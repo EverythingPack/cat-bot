@@ -1253,6 +1253,50 @@ async def on_ready():
         ]
     )
 
+async def belated(message, user, channel):
+    # belated battlepass
+    if message.channel.id in temp_belated_storage:
+        belated = temp_belated_storage[message.channel.id]
+        if (
+            channel
+            and "users" in belated
+            and "time" in belated
+            and channel.lastcatches + 3 > int(time.time())
+            and message.author.id not in belated["users"]
+        ):
+            belated["users"].append(message.author.id)
+            temp_belated_storage[message.channel.id] = belated
+            await progress(message, user, "3cats", True)
+            if channel.cattype == "Fine":
+                await progress(message, user, "2fine", True)
+            if channel.cattype == "Good":
+                await progress(message, user, "good", True)
+            if belated.get("time", 10) + int(time.time()) - channel.lastcatches < 10:
+                await progress(message, user, "under10", True)
+            if random.randint(0, 1) == 0:
+                await progress(message, user, "even", True)
+            else:
+                await progress(message, user, "odd", True)
+            if channel.cattype and channel.cattype not in ["Fine", "Nice", "Good"]:
+                await progress(message, user, "rare+", True)
+            if user.catnip_active >= time.time() or user.hibernation:
+                await bounty(message, user, channel.cattype)
+            total_count = await Prism.count("guild_id = $1", message.guild.id)
+            user_count = await Prism.count("guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
+            global_boost = 0.06 * math.log(2 * total_count + 1)
+            prism_boost = global_boost + 0.03 * math.log(2 * user_count + 1)
+            if prism_boost > random.random():
+                await progress(message, user, "prism", True)
+            if user.catch_quest == "finenice":
+                # 0 none
+                # 1 fine
+                # 2 nice
+                # 3 both
+                if channel.cattype == "Fine" and user.catch_progress in [0, 2]:
+                    await progress(message, user, "finenice", True)
+                elif channel.cattype == "Nice" and user.catch_progress in [0, 1]:
+                    await progress(message, user, "finenice", True)
+                    await progress(message, user, "finenice", True)
 
 # this is all the code which is ran on every message sent
 # a lot of it is for easter eggs or achievements
@@ -1716,7 +1760,7 @@ async def on_message(message: discord.Message):
     if text.lower() == "cat":
         user = await Profile.get_or_create(guild_id=message.guild.id, user_id=message.author.id)
         channel = await Channel.get_or_none(channel_id=message.channel.id)
-        if not channel or not channel.cat or channel.cat in temp_catches_storage or user.timeout > time.time():
+        if not channel or not channel.cat or channel.cat in temp_catches_storage:
             # laugh at this user
             # (except if rain is active, we dont have perms or channel isnt setupped, or we laughed way too much already)
             if channel and channel.cat_rains == 0 and perms.add_reactions and pointlaugh_ratelimit.get(message.channel.id, 0) < 10:
@@ -1725,51 +1769,24 @@ async def on_message(message: discord.Message):
                     pointlaugh_ratelimit[message.channel.id] = pointlaugh_ratelimit.get(message.channel.id, 0) + 1
                 except Exception:
                     pass
-
-            # belated battlepass
-            if message.channel.id in temp_belated_storage:
-                belated = temp_belated_storage[message.channel.id]
-                if (
-                    channel
-                    and "users" in belated
-                    and "time" in belated
-                    and channel.lastcatches + 3 > int(time.time())
-                    and message.author.id not in belated["users"]
-                ):
-                    belated["users"].append(message.author.id)
-                    temp_belated_storage[message.channel.id] = belated
-                    await progress(message, user, "3cats", True)
-                    if channel.cattype == "Fine":
-                        await progress(message, user, "2fine", True)
-                    if channel.cattype == "Good":
-                        await progress(message, user, "good", True)
-                    if belated.get("time", 10) + int(time.time()) - channel.lastcatches < 10:
-                        await progress(message, user, "under10", True)
-                    if random.randint(0, 1) == 0:
-                        await progress(message, user, "even", True)
-                    else:
-                        await progress(message, user, "odd", True)
-                    if channel.cattype and channel.cattype not in ["Fine", "Nice", "Good"]:
-                        await progress(message, user, "rare+", True)
-                    if user.catnip_active >= time.time() or user.hibernation:
-                        await bounty(message, user, channel.cattype)
-                    total_count = await Prism.count("guild_id = $1", message.guild.id)
-                    user_count = await Prism.count("guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
-                    global_boost = 0.06 * math.log(2 * total_count + 1)
-                    prism_boost = global_boost + 0.03 * math.log(2 * user_count + 1)
-                    if prism_boost > random.random():
-                        await progress(message, user, "prism", True)
-                    if user.catch_quest == "finenice":
-                        # 0 none
-                        # 1 fine
-                        # 2 nice
-                        # 3 both
-                        if channel.cattype == "Fine" and user.catch_progress in [0, 2]:
-                            await progress(message, user, "finenice", True)
-                        elif channel.cattype == "Nice" and user.catch_progress in [0, 1]:
-                            await progress(message, user, "finenice", True)
-                            await progress(message, user, "finenice", True)
+                belated(message, user, channel)
+        elif user.timeout > time.time():
+            try:
+                if perms.send_messages and (not message.thread or perms.send_messages_in_threads):
+                    await message.reply(f"You have been `/preventcatch`-ed by an admin, you can catch again <t:{user.timeout}>.`", ephemeral=True)
+            except Exception:
+                pass
+            belated(message, user, channel)
+        elif user.catch_timer > time.time() and channel != user.channel:
+            try:
+                if perms.send_messages and (not message.thread or perms.send_messages_in_threads):
+                    await message.reply(f"You can catch in this channel <t:{user.catch_timer}>.`", ephemeral=True)
+            except Exception:
+                pass
+            belated(message, user, channel)
         else:
+            user.channel = channel
+            user.catch_timer = channel.catch_timer
             pls_remove_me_later_k_thanks = channel.cat
             temp_catches_storage.append(channel.cat)
             decided_time = random.uniform(channel.spawn_times_min, channel.spawn_times_max)
@@ -3263,6 +3280,33 @@ leave blank to reset.""",
 
     await message.response.send_message(embed=embed, view=view)
 
+@bot.tree.command(description="(ADMIN) Change double catch settings.")
+@discord.app_commands.default_permissions(manage_guild=True)
+@discord.app_commands.describe(
+    time="In seconds, minimum possible time between channel hop catches (leave empty to disable)",
+)
+async def doublecatching(
+    message: discord.Interaction,
+    time: Optional[int],
+):
+    channel = await Channel.get_or_none(channel_id=message.channel.id)
+    if not channel:
+        await message.response.send_message("This channel isnt setupped. Please select a valid channel.", ephemeral=True)
+        return
+
+    if not time:
+        # reset
+        channel.catch_timer = 0
+        await channel.save()
+        await message.response.send_message("Success! This channel's double catching system is now disabled.")
+    else:
+
+        channel.catch_timer = time
+        await channel.save()
+
+        await message.response.send_message(
+            f"Success! The double catching timer is now set to {time} seconds."
+        )
 
 @bot.tree.command(description="Get ID of a thing")
 async def getid(message: discord.Interaction, thing: discord.User | discord.Role):
